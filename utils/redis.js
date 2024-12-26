@@ -1,53 +1,38 @@
-// redis.js
+import { createClient, TimeSeriesAggregationType } from "redis";
+import { promisify } from "util";
 
-import redis from 'redis';
-import { promisify } from 'util';
 
 class RedisClient {
-  constructor() {
-    this.client = redis.createClient();
-    this.client.on('connect', () => {
-      console.log('Redis client connected');
-    });
-    this.client.on('error', (err) => {
-      console.error(`Redis client not connected to the server: ${err}`);
-      console.error(err);
-    });
-    this.getAsync = promisify(this.client.get).bind(this.client);
-    this.setAsync = promisify(this.client.set).bind(this.client);
-    this.delAsync = promisify(this.client.del).bind(this.client);
-  }
+	constructor() {
+		this.redisClient = createClient();
+		this.redisClient.on("error", (error) => {
+			console.log(error);
+		})
+		this.connected = false;
+		this.redisClient.on("connect", () => {
+			this.connected = true;
+		});
+	}
 
-  isAlive() {
-    return this.client.connected;
- }
-  
-  
-  async get(key) {
-    try {
-      const value = await this.getAsync(key);
-      return value;
-    } catch (error) {
-      console.error(error);
-      return null;
-    }
-  }
+	isAlive() {
+		return this.connected;
+	}
 
-  async set(key, value, duration) {
-    try {
-      await this.setAsync(key, value, 'EX', duration);
-    } catch (error) {
-      console.error(error);
-    }
-  }
+	async get(key) {
+		let promise_get = promisify(this.redisClient.get).bind(this.redisClient);
+		return await promise_get(key);
+	}
 
-  async del(key) {
-    try {
-      await this.delAsync(key);
-    } catch (error) {
-      console.error(error);
-    }
-  }
+	async set(key, value, expr) {
+		let promise_set = promisify(this.redisClient.set).bind(this.redisClient);
+		await promise_set(key, value, "Ex", expr);
+	}
+
+	async del(key) {
+		let promise_del = promisify(this.redisClient.del).bind(this.redisClient);
+		await promise_del(key);
+	}
 }
+
 const redisClient = new RedisClient();
-module.exports = redisClient;
+export default redisClient;
